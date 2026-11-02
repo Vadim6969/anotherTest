@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Note } from '~/types/note'
+import type { ReadonlyNote } from '~/types/note'
+import { noteLinkId } from '~/utils/element-ids'
 
-const props = defineProps<{ note: Note }>()
+const TODO_PREVIEW_LIMIT = 3
+
+const props = defineProps<{ note: ReadonlyNote }>()
 defineEmits<{ delete: [id: string] }>()
 const completed = computed(() => props.note.todos.filter((todo) => todo.completed).length)
 const date = computed(() =>
@@ -15,7 +18,7 @@ const date = computed(() =>
     <div class="note-card__heading">
       <h2>
         <NuxtLink
-          :id="`note-${note.id}`"
+          :id="noteLinkId(note.id)"
           :to="`/notes/${encodeURIComponent(note.id)}`"
           :title="note.title"
           >{{ note.title }}</NuxtLink
@@ -32,7 +35,7 @@ const date = computed(() =>
     </div>
     <ul v-if="note.todos.length" class="note-card__preview" role="list">
       <li
-        v-for="todo in note.todos.slice(0, 3)"
+        v-for="todo in note.todos.slice(0, TODO_PREVIEW_LIMIT)"
         :key="todo.id"
         :class="{ 'is-complete': todo.completed }"
       >
@@ -44,7 +47,9 @@ const date = computed(() =>
       </li>
     </ul>
     <p v-else class="note-card__empty">Пока без задач</p>
-    <p v-if="note.todos.length > 3" class="note-card__more">Ещё {{ note.todos.length - 3 }}</p>
+    <p v-if="note.todos.length > TODO_PREVIEW_LIMIT" class="note-card__more">
+      Ещё {{ note.todos.length - TODO_PREVIEW_LIMIT }}
+    </p>
     <footer class="note-card__footer">
       <span>{{
         note.todos.length ? `${completed} из ${note.todos.length} выполнено` : 'Без списка задач'
@@ -79,13 +84,8 @@ const date = computed(() =>
       line-height: 1.5;
     }
     a {
-      display: -webkit-box;
-      -webkit-box-orient: vertical;
-      -webkit-line-clamp: 2;
-      overflow: hidden;
       color: inherit;
       text-decoration: none;
-      overflow-wrap: anywhere;
     }
     a:hover {
       color: var(--color-accent);
@@ -115,6 +115,7 @@ const date = computed(() =>
     }
   }
 
+  &__heading a,
   &__text {
     display: -webkit-box;
     -webkit-box-orient: vertical;

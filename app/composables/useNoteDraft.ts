@@ -1,7 +1,9 @@
 import { onScopeDispose, readonly, ref, shallowRef, watch } from 'vue'
 import type { useNoteEditor } from '~/composables/useNoteEditor'
-import type { StorageError } from '~/types/note'
+import type { StorageError } from '~/types/storage'
 import { readDraft, removeDraft, writeDraft } from '~/utils/draft-storage'
+
+const DRAFT_SAVE_DELAY_MS = 700
 
 export function useNoteDraft(noteId: string | null, editor: ReturnType<typeof useNoteEditor>) {
   const initial = readDraft(noteId)
@@ -39,8 +41,7 @@ export function useNoteDraft(noteId: string | null, editor: ReturnType<typeof us
       remove()
       return
     }
-    const note = { ...editor.draft, todos: editor.draft.todos.map((todo) => ({ ...todo })) }
-    const result = writeDraft(noteId, note)
+    const result = writeDraft(noteId, editor.draft)
     error.value = result.status === 'storage-error' ? result.error : null
   }
 
@@ -63,7 +64,7 @@ export function useNoteDraft(noteId: string | null, editor: ReturnType<typeof us
       stopTimer()
       if (blocked || pendingDraft.value || finishing.value) return
       suspended = false
-      if (editor.isDirty.value) timer = setTimeout(flush, 700)
+      if (editor.isDirty.value) timer = setTimeout(flush, DRAFT_SAVE_DELAY_MS)
       else remove()
     },
     { deep: true, flush: 'sync' },

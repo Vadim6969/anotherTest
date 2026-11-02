@@ -1,5 +1,6 @@
+import { readonly } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { readNotes, writeNotes } from '~/utils/notes-storage'
+import { NOTES_STORAGE_KEY, readNotes, writeNotes } from '~/utils/notes-storage'
 import { createMemoryStorage, makeNote } from '../helpers/notes'
 
 describe('notes storage', () => {
@@ -16,7 +17,7 @@ describe('notes storage', () => {
 
   it('reads an unused storage without creating an entry', () => {
     expect(readNotes()).toEqual({ status: 'ok', notes: [] })
-    expect(storage.getItem('notes-app:notes')).toBeNull()
+    expect(storage.getItem(NOTES_STORAGE_KEY)).toBeNull()
   })
 
   it('persists the schema version and restores note and todo fields', () => {
@@ -27,7 +28,7 @@ describe('notes storage', () => {
       ],
     })
 
-    expect(writeNotes([note])).toEqual({ status: 'ok' })
+    expect(writeNotes(readonly([note]))).toEqual({ status: 'ok' })
     expect(JSON.parse(storage.getItem('notes-app:notes')!)).toEqual({
       schemaVersion: 1,
       notes: [note],
@@ -68,18 +69,18 @@ describe('notes storage', () => {
       }),
     ],
   ])('rejects %s without changing the stored value', (_, raw) => {
-    storage.setItem('notes-app:notes', raw)
+    storage.setItem(NOTES_STORAGE_KEY, raw)
 
     expect(readNotes()).toEqual({ status: 'storage-error', error: 'invalid-data' })
-    expect(storage.getItem('notes-app:notes')).toBe(raw)
+    expect(storage.getItem(NOTES_STORAGE_KEY)).toBe(raw)
   })
 
   it('reports an unsupported schema without replacing it', () => {
     const raw = JSON.stringify({ schemaVersion: 2, notes: [] })
-    storage.setItem('notes-app:notes', raw)
+    storage.setItem(NOTES_STORAGE_KEY, raw)
 
     expect(readNotes()).toEqual({ status: 'storage-error', error: 'unsupported-version' })
-    expect(storage.getItem('notes-app:notes')).toBe(raw)
+    expect(storage.getItem(NOTES_STORAGE_KEY)).toBe(raw)
   })
 
   it('returns an error when the browser denies access to localStorage', () => {
@@ -95,7 +96,7 @@ describe('notes storage', () => {
   })
 
   it('does not report success when the storage quota is exceeded', () => {
-    storage.setItem('notes-app:notes', '{"schemaVersion":1,"notes":[]}')
+    storage.setItem(NOTES_STORAGE_KEY, '{"schemaVersion":1,"notes":[]}')
     vi.spyOn(storage, 'setItem').mockImplementation(() => {
       throw new DOMException('Storage is full', 'QuotaExceededError')
     })

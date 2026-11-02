@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
 import type ConfirmDialog from '~/components/ConfirmDialog.vue'
+import { DELETE_NOTE_CONFIRMATION } from '~/constants/confirmations'
+import { noteLinkId } from '~/utils/element-ids'
 import { storageErrorMessages } from '~/utils/storage-errors'
 
 const store = useNotesStore()
@@ -14,12 +16,7 @@ useHead({ title: 'Заметки' })
 
 async function deleteNote(id: string): Promise<void> {
   statusMessage.value = ''
-  const confirmed = await confirmation.value?.ask({
-    title: 'Удалить заметку?',
-    description: 'Заметка и все её задачи будут удалены. Это действие нельзя отменить.',
-    confirmLabel: 'Удалить заметку',
-    danger: true,
-  })
+  const confirmed = await confirmation.value?.ask(DELETE_NOTE_CONFIRMATION)
   if (!confirmed) return
   const index = notes.value.findIndex((note) => note.id === id)
   const result = store.remove(id)
@@ -27,7 +24,7 @@ async function deleteNote(id: string): Promise<void> {
   statusMessage.value = 'Заметка удалена'
   await nextTick()
   const next = notes.value[index] ?? notes.value[index - 1]
-  document.getElementById(next ? `note-${next.id}` : 'create-note')?.focus()
+  document.getElementById(next ? noteLinkId(next.id) : 'create-note')?.focus()
 }
 </script>
 

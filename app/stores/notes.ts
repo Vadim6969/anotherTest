@@ -1,13 +1,13 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { Note, SaveResult, StorageError } from '~/types/note'
+import type { Note, ReadonlyNote } from '~/types/note'
+import type { StorageError, StorageWriteResult } from '~/types/storage'
+import { copyNote } from '~/utils/note'
 import { readNotes, writeNotes } from '~/utils/notes-storage'
 
-function prepareNote(note: Note): Note {
+function prepareNote(note: ReadonlyNote): Note {
   return {
-    id: note.id,
-    title: note.title,
-    todos: note.todos.map((todo) => ({ ...todo })),
+    ...copyNote(note),
     updatedAt: new Date().toISOString(),
   }
 }
@@ -27,7 +27,7 @@ export const useNotesStore = defineStore('notes', () => {
     if (result.status === 'ok') notes.value = result.notes
   }
 
-  function persist(next: Note[]): SaveResult {
+  function persist(next: Note[]): StorageWriteResult {
     const result = writeNotes(next)
     if (result.status === 'ok') {
       notes.value = next
@@ -38,7 +38,7 @@ export const useNotesStore = defineStore('notes', () => {
     return result
   }
 
-  function create(note: Note): SaveResult {
+  function create(note: ReadonlyNote): StorageWriteResult | { status: 'conflict' } {
     const latest = readLatest()
     if (latest.status === 'storage-error') return latest
 
@@ -50,7 +50,7 @@ export const useNotesStore = defineStore('notes', () => {
     return persist([...latest.notes, prepareNote(note)])
   }
 
-  function update(note: Note): SaveResult {
+  function update(note: ReadonlyNote): StorageWriteResult | { status: 'missing' } {
     const latest = readLatest()
     if (latest.status === 'storage-error') return latest
 
@@ -63,7 +63,7 @@ export const useNotesStore = defineStore('notes', () => {
     return persist(latest.notes.map((saved) => (saved.id === note.id ? savedNote : saved)))
   }
 
-  function remove(id: string): SaveResult {
+  function remove(id: string): StorageWriteResult | { status: 'missing' } {
     const latest = readLatest()
     if (latest.status === 'storage-error') return latest
 

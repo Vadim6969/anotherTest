@@ -1,6 +1,6 @@
-import type { StorageError } from '~/types/note'
+import type { StorageError } from '~/types/storage'
 
-export const storageErrorMessages: Record<StorageError, string> = {
+export const storageErrorMessages: Readonly<Record<StorageError, string>> = {
   'invalid-data':
     'Не удалось прочитать сохранённые заметки: данные повреждены. Они остались без изменений.',
   'unsupported-version':

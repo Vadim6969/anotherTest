@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Todo } from '~/types/note'
+import { todoErrorId, todoInputId } from '~/utils/element-ids'
 
 defineProps<{ todo: Readonly<Todo>; number: number; error?: boolean }>()
 const emit = defineEmits<{
@@ -10,11 +11,15 @@ const emit = defineEmits<{
 }>()
 
 function changeText(event: Event): void {
-  emit('update:text', (event.target as HTMLTextAreaElement).value)
+  if (event.currentTarget instanceof HTMLTextAreaElement) {
+    emit('update:text', event.currentTarget.value)
+  }
 }
 
 function changeCompleted(event: Event): void {
-  emit('update:completed', (event.target as HTMLInputElement).checked)
+  if (event.currentTarget instanceof HTMLInputElement) {
+    emit('update:completed', event.currentTarget.checked)
+  }
 }
 </script>
 
@@ -31,19 +36,19 @@ function changeCompleted(event: Event): void {
     </label>
     <div class="todo-item__field">
       <textarea
-        :id="`todo-${todo.id}`"
+        :id="todoInputId(todo.id)"
         class="text-input"
         rows="2"
         :value="todo.text"
         :aria-label="`Задача ${number}`"
         :aria-invalid="error || undefined"
-        :aria-describedby="error ? `todo-error-${todo.id}` : undefined"
+        :aria-describedby="error ? todoErrorId(todo.id) : undefined"
         placeholder="Что нужно сделать?"
         autocomplete="off"
         @input="changeText"
         @blur="$emit('blur')"
       />
-      <p v-if="error" :id="`todo-error-${todo.id}`" class="field-error">Введите текст задачи</p>
+      <p v-if="error" :id="todoErrorId(todo.id)" class="field-error">Введите текст задачи</p>
     </div>
     <button
       class="icon-button icon-button--danger"
@@ -65,8 +70,8 @@ function changeCompleted(event: Event): void {
   &__check-target {
     display: grid;
     place-items: center;
-    flex: 0 0 2.75rem;
-    min-height: 2.75rem;
+    flex: 0 0 var(--control-size);
+    min-height: var(--control-size);
     cursor: pointer;
     border-radius: 0.5rem;
   }

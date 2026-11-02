@@ -3,7 +3,7 @@ import { effectScope } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useNoteEditor } from '~/composables/useNoteEditor'
 import { useNoteDraft } from '~/composables/useNoteDraft'
-import { readDraft, writeDraft } from '~/utils/draft-storage'
+import { draftStorageKey, readDraft, writeDraft } from '~/utils/draft-storage'
 import { createMemoryStorage, makeNote } from '../helpers/notes'
 
 describe('draft recovery lifecycle', () => {
@@ -117,13 +117,13 @@ describe('draft recovery lifecycle', () => {
   })
 
   it('does not overwrite unsupported stored data', () => {
-    storage.setItem('notes-app:draft:new', '{"schemaVersion":2}')
+    storage.setItem(draftStorageKey(null), '{"schemaVersion":2}')
     const { editor, recovery } = session()
     editor.setTitle('Правки')
     vi.runAllTimers()
     recovery.flush()
     expect(recovery.error.value).toBe('unsupported-version')
-    expect(storage.getItem('notes-app:draft:new')).toBe('{"schemaVersion":2}')
+    expect(storage.getItem(draftStorageKey(null))).toBe('{"schemaVersion":2}')
   })
 
   it('reports quota and cleanup failures while keeping editor data available', () => {
@@ -146,7 +146,7 @@ describe('draft recovery lifecycle', () => {
     editor.setTitle('Перед уходом')
     scope.stop()
     expect(readDraft(null)).toMatchObject({ status: 'ok', note: { title: 'Перед уходом' } })
-    storage.removeItem('notes-app:draft:new')
+    storage.removeItem(draftStorageKey(null))
     editor.setTitle('После ухода')
     page.dispatchEvent(new Event('pagehide'))
     documentEvents.visibilityState = 'hidden'

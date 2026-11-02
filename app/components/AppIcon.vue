@@ -1,5 +1,5 @@
 <script setup lang="ts">
-defineProps<{ name: 'note' | 'plus' | 'back' | 'undo' | 'redo' | 'trash' | 'check' }>()
+defineProps<{ name: keyof typeof paths }>()
 
 const paths = {
   note: 'M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-3M8 2h8v4H8zM7 11h10M7 16h7',

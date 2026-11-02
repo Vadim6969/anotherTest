@@ -1,3 +1,5 @@
+import type { StorageWriteResult } from './storage'
+
 export interface Todo {
   id: string
   text: string
@@ -11,11 +13,8 @@ export interface Note {
   updatedAt: string
 }
 
-export type StorageError = 'invalid-data' | 'unsupported-version' | 'unavailable'
-
-export interface StorageFailure {
-  status: 'storage-error'
-  error: StorageError
+export interface ReadonlyNote extends Readonly<Omit<Note, 'todos'>> {
+  readonly todos: readonly Readonly<Todo>[]
 }
 
-export type SaveResult = { status: 'ok' | 'missing' | 'conflict' } | StorageFailure
+export type SaveResult = StorageWriteResult | { status: 'missing' } | { status: 'conflict' }

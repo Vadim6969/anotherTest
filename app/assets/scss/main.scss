@@ -1,3 +1,5 @@
+@use './variables' as *;
+
 :root {
   color-scheme: light;
   font-family:
@@ -18,7 +20,11 @@
   --color-border: #dde3e5;
   --color-border-strong: #89968e;
   --color-danger: #ae3039;
+  --color-danger-hover: #922832;
   --color-danger-soft: #fff2f2;
+  --color-on-accent: #fff;
+  --control-size: 2.75rem;
+  --page-width: 72rem;
 }
 
 *,
@@ -99,7 +105,7 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  max-width: 72rem;
+  max-width: var(--page-width);
   min-height: 4.5rem;
   margin: 0 auto;
   padding: 1rem 2rem;
@@ -118,7 +124,7 @@ button:disabled {
   color: var(--color-text-muted);
 }
 .page {
-  max-width: 72rem;
+  max-width: var(--page-width);
   margin: 0 auto;
   padding: 2.5rem 2rem 4rem;
 }
@@ -149,7 +155,7 @@ button:disabled {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  min-height: 2.75rem;
+  min-height: var(--control-size);
   padding: 0.625rem 1rem;
   border: 1px solid transparent;
   border-radius: 0.5rem;
@@ -163,7 +169,7 @@ button:disabled {
 }
 .button--primary {
   background: var(--color-accent);
-  color: #fff;
+  color: var(--color-on-accent);
 }
 .button--primary:hover:not(:disabled) {
   background: var(--color-accent-hover);
@@ -178,10 +184,10 @@ button:disabled {
 }
 .button--danger {
   background: var(--color-danger);
-  color: #fff;
+  color: var(--color-on-accent);
 }
 .button--danger:hover:not(:disabled) {
-  background: #922832;
+  background: var(--color-danger-hover);
 }
 .button--danger-text {
   padding-inline: 0.5rem;
@@ -194,8 +200,8 @@ button:disabled {
 .icon-button {
   display: inline-grid;
   place-items: center;
-  width: 2.75rem;
-  height: 2.75rem;
+  width: var(--control-size);
+  height: var(--control-size);
   flex-shrink: 0;
   border: 0;
   border-radius: 0.5rem;
@@ -220,7 +226,7 @@ button:disabled {
   display: block;
   width: 100%;
   min-width: 0;
-  min-height: 2.75rem;
+  min-height: var(--control-size);
   padding: 0.625rem 0.75rem;
   border: 1px solid var(--color-border-strong);
   border-radius: 0.5rem;
@@ -250,7 +256,7 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  min-height: 2.75rem;
+  min-height: var(--control-size);
   color: var(--color-text-muted);
   font-size: 0.875rem;
   text-decoration: none;
@@ -291,7 +297,7 @@ button:disabled {
   background: var(--color-danger-soft);
   border-color: currentColor;
 }
-@media (max-width: 560px) {
+@media (max-width: $mobile-breakpoint) {
   .site-header__inner {
     padding-inline: 1rem;
   }

@@ -1,16 +1,13 @@
 import { computed, reactive, readonly, ref, shallowRef, triggerRef } from 'vue'
 import { useNotesStore } from '~/stores/notes'
-import type { Note, SaveResult } from '~/types/note'
+import type { Note, ReadonlyNote, SaveResult } from '~/types/note'
+import { copyNote } from '~/utils/note'
 import { createNoteHistory } from '~/utils/note-history'
 import type { NoteChange, TextChange } from '~/utils/note-history'
 
 type EditorSaveResult = SaveResult | { status: 'invalid' }
 
-function copyNote(note: Note): Note {
-  return { ...note, todos: note.todos.map((todo) => ({ ...todo })) }
-}
-
-export function useNoteEditor(initialNote?: Note, existingId?: string) {
+export function useNoteEditor(initialNote?: ReadonlyNote, existingId?: string) {
   const store = useNotesStore()
   const baseline = shallowRef<Note>(
     initialNote
@@ -170,7 +167,7 @@ export function useNoteEditor(initialNote?: Note, existingId?: string) {
     return persist(true)
   }
 
-  function restoreDraft(note: Note): void {
+  function restoreDraft(note: ReadonlyNote): void {
     Object.assign(draft, copyNote(note))
     clearHistory()
   }

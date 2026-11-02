@@ -8,6 +8,10 @@ export default defineNuxtConfig({
     strict: true,
     appTsConfig: {
       include: ['../tests/unit/**/*.ts'],
+      compilerOptions: {
+        noUnusedLocals: true,
+        noUnusedParameters: true,
+      },
     },
     nodeTsConfig: {
       include: ['../vitest.config.ts'],

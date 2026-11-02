@@ -3,6 +3,7 @@ import { reactive } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useNoteEditor } from '~/composables/useNoteEditor'
 import { useNotesStore } from '~/stores/notes'
+import { NOTES_STORAGE_KEY } from '~/utils/notes-storage'
 import { createMemoryStorage, makeNote } from '../helpers/notes'
 
 describe('note editor', () => {
@@ -19,7 +20,7 @@ describe('note editor', () => {
   })
 
   function existingEditor() {
-    storage.setItem('notes-app:notes', JSON.stringify({ schemaVersion: 1, notes: [makeNote()] }))
+    storage.setItem(NOTES_STORAGE_KEY, JSON.stringify({ schemaVersion: 1, notes: [makeNote()] }))
     const store = useNotesStore()
     store.load()
     return useNoteEditor(store.notes[0]!)
@@ -83,7 +84,7 @@ describe('note editor', () => {
     expect(original).toEqual(makeNote())
     expect(editor.draft.title).toBe('Выходные')
     expect(editor.draft.todos[0]).toEqual({ id: 'todo-1', text: 'Кофе', completed: true })
-    expect(storage.getItem('notes-app:notes')).toBeNull()
+    expect(storage.getItem(NOTES_STORAGE_KEY)).toBeNull()
   })
 
   it('groups continuous title input into one step and updates history flags', () => {
@@ -274,7 +275,7 @@ describe('note editor', () => {
   it('creates a new note on first save and updates it on subsequent saves', () => {
     const editor = useNoteEditor()
     expect(editor.isNew.value).toBe(true)
-    expect(storage.getItem('notes-app:notes')).toBeNull()
+    expect(storage.getItem(NOTES_STORAGE_KEY)).toBeNull()
     editor.setTitle('Планы')
     expect(editor.save()).toEqual({ status: 'ok' })
     const id = editor.draft.id
@@ -292,7 +293,7 @@ describe('note editor', () => {
     expect(editor.validationErrors.value).toEqual({ title: true, todos: [id] })
     expect(editor.save()).toEqual({ status: 'invalid' })
     expect(editor.canUndo.value).toBe(true)
-    expect(storage.getItem('notes-app:notes')).toBeNull()
+    expect(storage.getItem(NOTES_STORAGE_KEY)).toBeNull()
 
     editor.setTitle(' Планы ')
     editor.setTodoText(id, ' Купить хлеб ')
@@ -308,7 +309,7 @@ describe('note editor', () => {
       const editor = existingEditor()
       editor.setTitle('Несохранённая правка')
       if (status === 'missing') {
-        storage.setItem('notes-app:notes', '{"schemaVersion":1,"notes":[]}')
+        storage.setItem(NOTES_STORAGE_KEY, '{"schemaVersion":1,"notes":[]}')
       } else {
         vi.spyOn(storage, 'setItem').mockImplementation(() => {
           throw new DOMException('Storage is full', 'QuotaExceededError')
@@ -328,7 +329,7 @@ describe('note editor', () => {
 
   it('cancels applied changes, redo and pending text without writing to storage', () => {
     const editor = existingEditor()
-    const before = storage.getItem('notes-app:notes')
+    const before = storage.getItem(NOTES_STORAGE_KEY)
     editor.setTitle('Выходные')
     editor.setTodoCompleted('todo-1', true)
     editor.undo()
@@ -344,6 +345,6 @@ describe('note editor', () => {
     editor.cancel()
     expect(editor.draft.title).toBe('Покупки')
     expect(editor.undo()).toBe(false)
-    expect(storage.getItem('notes-app:notes')).toBe(before)
+    expect(storage.getItem(NOTES_STORAGE_KEY)).toBe(before)
   })
 })

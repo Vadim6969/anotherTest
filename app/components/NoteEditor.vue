@@ -2,10 +2,12 @@
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
 import type ConfirmDialog from './ConfirmDialog.vue'
-import type { Note } from '~/types/note'
+import type { ReadonlyNote } from '~/types/note'
+import { DELETE_NOTE_CONFIRMATION, DISCARD_CHANGES_CONFIRMATION } from '~/constants/confirmations'
+import { todoInputId } from '~/utils/element-ids'
 import { storageErrorMessages } from '~/utils/storage-errors'
 
-const props = defineProps<{ note?: Note; noteId: string | null }>()
+const props = defineProps<{ note?: ReadonlyNote; noteId: string | null }>()
 const store = useNotesStore()
 const editor = useNoteEditor(props.note, props.noteId ?? undefined)
 const { draft, isNew, canUndo, canRedo, isDirty, validationErrors } = editor
@@ -48,15 +50,7 @@ async function offerRecovery(): Promise<void> {
 onMounted(offerRecovery)
 
 async function confirmDiscard(): Promise<boolean> {
-  return (
-    (await confirmation.value?.ask({
-      title: 'Отменить изменения?',
-      description: 'Несохранённые изменения будут потеряны.',
-      confirmLabel: 'Отменить изменения',
-      cancelLabel: 'Продолжить редактирование',
-      danger: true,
-    })) ?? false
-  )
+  return (await confirmation.value?.ask(DISCARD_CHANGES_CONFIRMATION)) ?? false
 }
 
 async function leave(): Promise<boolean> {
@@ -76,13 +70,15 @@ async function cancel(): Promise<void> {
 }
 
 function changeTitle(event: Event): void {
-  editor.setTitle((event.target as HTMLInputElement).value)
+  if (event.currentTarget instanceof HTMLInputElement) {
+    editor.setTitle(event.currentTarget.value)
+  }
 }
 
 async function addTodo(): Promise<void> {
   const id = editor.addTodo()
   await nextTick()
-  document.getElementById(`todo-${id}`)?.focus()
+  document.getElementById(todoInputId(id))?.focus()
 }
 
 async function removeTodo(id: string): Promise<void> {
@@ -90,7 +86,7 @@ async function removeTodo(id: string): Promise<void> {
   if (!editor.removeTodo(id)) return
   await nextTick()
   const next = draft.todos[index] ?? draft.todos[index - 1]
-  if (next) document.getElementById(`todo-${next.id}`)?.focus()
+  if (next) document.getElementById(todoInputId(next.id))?.focus()
   else addButton.value?.focus()
 }
 
@@ -104,7 +100,10 @@ async function save(asNew = false): Promise<void> {
   } else if (result.status === 'invalid') {
     await nextTick()
     if (validationErrors.value.title) titleInput.value?.focus()
-    else document.getElementById(`todo-${validationErrors.value.todos[0]}`)?.focus()
+    else {
+      const firstInvalidTodo = validationErrors.value.todos[0]
+      if (firstInvalidTodo) document.getElementById(todoInputId(firstInvalidTodo))?.focus()
+    }
   } else if (result.status === 'storage-error') {
     actionError.value = storageErrorMessages[result.error]
   } else if (result.status === 'missing') {
@@ -121,12 +120,7 @@ async function finishSession(): Promise<void> {
 }
 
 async function deleteNote(): Promise<void> {
-  const confirmed = await confirmation.value?.ask({
-    title: 'Удалить заметку?',
-    description: 'Заметка и все её задачи будут удалены. Это действие нельзя отменить.',
-    confirmLabel: 'Удалить заметку',
-    danger: true,
-  })
+  const confirmed = await confirmation.value?.ask(DELETE_NOTE_CONFIRMATION)
   if (!confirmed) return
   const result = store.remove(draft.id)
   if (result.status === 'ok' || result.status === 'missing') {
@@ -283,6 +277,8 @@ async function deleteNote(): Promise<void> {
 </template>
 
 <style scoped lang="scss">
+@use '~/assets/scss/variables' as *;
+
 .editor-page {
   max-width: 52rem;
 }
@@ -347,7 +343,7 @@ async function deleteNote(): Promise<void> {
   gap: 0.75rem;
   margin-left: auto;
 }
-@media (max-width: 560px) {
+@media (max-width: $mobile-breakpoint) {
   .editor-heading {
     align-items: flex-start;
   }

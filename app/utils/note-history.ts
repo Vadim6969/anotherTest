@@ -1,5 +1,7 @@
 import type { Note, Todo } from '~/types/note'
 
+const HISTORY_LIMIT = 50
+
 export type TextChange =
   | { type: 'set-title'; before: string; after: string }
   | { type: 'set-todo-text'; id: string; before: string; after: string }
@@ -9,7 +11,7 @@ export type NoteChange =
   | { type: 'set-todo-completed'; id: string; before: boolean; after: boolean }
   | { type: 'insert-todo' | 'remove-todo'; todo: Todo; index: number }
 
-export function createNoteHistory(note: Note, limit = 50) {
+export function createNoteHistory(note: Note, limit = HISTORY_LIMIT) {
   if (!Number.isInteger(limit) || limit < 1) {
     throw new RangeError('History limit must be a positive integer')
   }

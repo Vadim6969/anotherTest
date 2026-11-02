@@ -1,19 +1,11 @@
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, ref, shallowRef, useId } from 'vue'
-
-interface Confirmation {
-  title: string
-  description: string
-  confirmLabel: string
-  cancelLabel?: string
-  danger?: boolean
-  focusConfirm?: boolean
-}
+import type { Confirmation } from '~/types/confirmation'
 
 const dialog = ref<HTMLDialogElement | null>(null)
 const cancelButton = ref<HTMLButtonElement | null>(null)
 const confirmButton = ref<HTMLButtonElement | null>(null)
-const options = shallowRef<Confirmation>({
+const options = shallowRef<Readonly<Confirmation>>({
   title: '',
   description: '',
   confirmLabel: 'Подтвердить',
@@ -32,7 +24,7 @@ function finish(answer: boolean | null): void {
   resolve(answer)
 }
 
-function ask(confirmation: Confirmation): Promise<boolean | null> {
+function ask(confirmation: Readonly<Confirmation>): Promise<boolean | null> {
   if (resolvePending || !dialog.value) return Promise.resolve(null)
   options.value = confirmation
   previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
@@ -98,6 +90,8 @@ defineExpose({ ask })
 </template>
 
 <style scoped lang="scss">
+@use '~/assets/scss/variables' as *;
+
 .confirm-dialog {
   width: min(28rem, calc(100% - 2rem));
   max-height: calc(100dvh - 2rem);
@@ -132,7 +126,7 @@ defineExpose({ ask })
     margin-top: 1.75rem;
   }
 
-  @media (max-width: 560px) {
+  @media (max-width: $mobile-breakpoint) {
     padding: 1.5rem;
 
     &__actions {

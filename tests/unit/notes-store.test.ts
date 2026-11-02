@@ -3,13 +3,16 @@ import { nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useNotesStore } from '~/stores/notes'
 import type { Note } from '~/types/note'
+import { NOTES_STORAGE_KEY } from '~/utils/notes-storage'
 import { createMemoryStorage, makeNote } from '../helpers/notes'
+
+const SAVE_TIME = '2026-11-02T12:00:00.000Z'
 
 describe('notes store', () => {
   let storage: Storage
 
   function seed(notes: Note[]) {
-    storage.setItem('notes-app:notes', JSON.stringify({ schemaVersion: 1, notes }))
+    storage.setItem(NOTES_STORAGE_KEY, JSON.stringify({ schemaVersion: 1, notes }))
   }
 
   beforeEach(() => {
@@ -17,7 +20,7 @@ describe('notes store', () => {
     vi.stubGlobal('localStorage', storage)
     setActivePinia(createPinia())
     vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-11-02T12:00:00.000Z'))
+    vi.setSystemTime(new Date(SAVE_TIME))
   })
 
   afterEach(() => {
@@ -29,7 +32,7 @@ describe('notes store', () => {
     const store = useNotesStore()
 
     expect(store.create(makeNote())).toEqual({ status: 'ok' })
-    expect(store.notes).toEqual([makeNote({ updatedAt: '2026-11-02T12:00:00.000Z' })])
+    expect(store.notes).toEqual([makeNote({ updatedAt: SAVE_TIME })])
 
     const restored = useNotesStore(createPinia())
     restored.load()
@@ -51,7 +54,7 @@ describe('notes store', () => {
 
     const restored = useNotesStore(createPinia())
     restored.load()
-    expect(restored.notes).toEqual([{ ...edited, updatedAt: '2026-11-02T12:00:00.000Z' }, other])
+    expect(restored.notes).toEqual([{ ...edited, updatedAt: SAVE_TIME }, other])
   })
 
   it('persists deletion, including removal of the last note', () => {
@@ -65,7 +68,7 @@ describe('notes store', () => {
     const restored = useNotesStore(createPinia())
     restored.load()
     expect(restored.notes).toEqual([])
-    expect(JSON.parse(storage.getItem('notes-app:notes')!)).toEqual({
+    expect(JSON.parse(storage.getItem(NOTES_STORAGE_KEY)!)).toEqual({
       schemaVersion: 1,
       notes: [],
     })
@@ -78,7 +81,7 @@ describe('notes store', () => {
       const store = useNotesStore()
       const draft = makeNote()
       store[action](draft)
-      const persisted = storage.getItem('notes-app:notes')
+      const persisted = storage.getItem(NOTES_STORAGE_KEY)
 
       draft.title = 'Несохранённый заголовок'
       draft.todos[0]!.text = 'Несохранённая задача'
@@ -86,8 +89,8 @@ describe('notes store', () => {
       draft.todos.push({ id: 'todo-2', text: 'Новый пункт', completed: false })
       await nextTick()
 
-      expect(store.notes).toEqual([makeNote({ updatedAt: '2026-11-02T12:00:00.000Z' })])
-      expect(storage.getItem('notes-app:notes')).toBe(persisted)
+      expect(store.notes).toEqual([makeNote({ updatedAt: SAVE_TIME })])
+      expect(storage.getItem(NOTES_STORAGE_KEY)).toBe(persisted)
     },
   )
 
@@ -148,11 +151,11 @@ describe('notes store', () => {
   it('refuses to create a duplicate id without overwriting the existing note', () => {
     seed([makeNote()])
     const store = useNotesStore()
-    const before = storage.getItem('notes-app:notes')
+    const before = storage.getItem(NOTES_STORAGE_KEY)
 
     expect(store.create(makeNote({ title: 'Дубликат' }))).toEqual({ status: 'conflict' })
     expect(store.notes).toEqual([makeNote()])
-    expect(storage.getItem('notes-app:notes')).toBe(before)
+    expect(storage.getItem(NOTES_STORAGE_KEY)).toBe(before)
   })
 
   it.each(['create', 'update', 'remove'] as const)(
@@ -161,7 +164,7 @@ describe('notes store', () => {
       seed([makeNote()])
       const store = useNotesStore()
       store.load()
-      const before = storage.getItem('notes-app:notes')
+      const before = storage.getItem(NOTES_STORAGE_KEY)
       vi.spyOn(storage, 'setItem').mockImplementation(() => {
         throw new DOMException('Storage is full', 'QuotaExceededError')
       })
@@ -176,7 +179,7 @@ describe('notes store', () => {
       expect(result).toEqual({ status: 'storage-error', error: 'unavailable' })
       expect(store.storageError).toBe('unavailable')
       expect(store.notes).toEqual([makeNote()])
-      expect(storage.getItem('notes-app:notes')).toBe(before)
+      expect(storage.getItem(NOTES_STORAGE_KEY)).toBe(before)
     },
   )
 
@@ -187,13 +190,13 @@ describe('notes store', () => {
     seed([makeNote()])
     const store = useNotesStore()
     store.load()
-    storage.setItem('notes-app:notes', raw)
+    storage.setItem(NOTES_STORAGE_KEY, raw)
 
     store.load()
     expect(store.storageError).toBe(error)
     expect(store.notes).toEqual([makeNote()])
     expect(store.create(makeNote({ id: 'note-2' }))).toEqual({ status: 'storage-error', error })
-    expect(storage.getItem('notes-app:notes')).toBe(raw)
+    expect(storage.getItem(NOTES_STORAGE_KEY)).toBe(raw)
   })
 
   it('clears the storage error after a successful retry', () => {

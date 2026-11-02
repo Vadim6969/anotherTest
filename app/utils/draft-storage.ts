@@ -1,17 +1,20 @@
-import type { Note, StorageFailure } from '~/types/note'
-import { isNote } from '~/utils/notes-storage'
+import type { Note, ReadonlyNote } from '~/types/note'
+import type { StorageFailure, StorageWriteResult } from '~/types/storage'
+import { isNote } from '~/utils/note'
+import { isRecord } from '~/utils/validation'
+
+const SCHEMA_VERSION = 1
 
 type ReadResult = { status: 'ok'; note: Note | null } | StorageFailure
-type WriteResult = { status: 'ok' } | StorageFailure
 
-function key(noteId: string | null): string {
+export function draftStorageKey(noteId: string | null): string {
   return `notes-app:draft:${noteId ?? 'new'}`
 }
 
 export function readDraft(noteId: string | null): ReadResult {
   let raw: string | null
   try {
-    raw = globalThis.sessionStorage.getItem(key(noteId))
+    raw = globalThis.sessionStorage.getItem(draftStorageKey(noteId))
   } catch {
     return { status: 'storage-error', error: 'unavailable' }
   }
@@ -23,19 +26,14 @@ export function readDraft(noteId: string | null): ReadResult {
   } catch {
     return { status: 'storage-error', error: 'invalid-data' }
   }
-  if (
-    typeof data !== 'object' ||
-    data === null ||
-    !('schemaVersion' in data) ||
-    !Number.isInteger(data.schemaVersion)
-  ) {
+  if (!isRecord(data) || !Number.isInteger(data.schemaVersion)) {
     return { status: 'storage-error', error: 'invalid-data' }
   }
-  if (data.schemaVersion !== 1) return { status: 'storage-error', error: 'unsupported-version' }
+  if (data.schemaVersion !== SCHEMA_VERSION) {
+    return { status: 'storage-error', error: 'unsupported-version' }
+  }
   if (
-    !('noteId' in data) ||
     data.noteId !== noteId ||
-    !('note' in data) ||
     !isNote(data.note) ||
     (noteId !== null && data.note.id !== noteId)
   ) {
@@ -44,14 +42,14 @@ export function readDraft(noteId: string | null): ReadResult {
   return { status: 'ok', note: data.note }
 }
 
-export function writeDraft(noteId: string | null, note: Note): WriteResult {
+export function writeDraft(noteId: string | null, note: ReadonlyNote): StorageWriteResult {
   if (!isNote(note) || (noteId !== null && note.id !== noteId)) {
     return { status: 'storage-error', error: 'invalid-data' }
   }
   try {
     globalThis.sessionStorage.setItem(
-      key(noteId),
-      JSON.stringify({ schemaVersion: 1, noteId, note }),
+      draftStorageKey(noteId),
+      JSON.stringify({ schemaVersion: SCHEMA_VERSION, noteId, note }),
     )
     return { status: 'ok' }
   } catch {
@@ -59,9 +57,9 @@ export function writeDraft(noteId: string | null, note: Note): WriteResult {
   }
 }
 
-export function removeDraft(noteId: string | null): WriteResult {
+export function removeDraft(noteId: string | null): StorageWriteResult {
   try {
-    globalThis.sessionStorage.removeItem(key(noteId))
+    globalThis.sessionStorage.removeItem(draftStorageKey(noteId))
     return { status: 'ok' }
   } catch {
     return { status: 'storage-error', error: 'unavailable' }

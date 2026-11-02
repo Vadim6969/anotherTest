@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, shallowRef } from 'vue'
-import type { Note, StorageError } from '~/types/note'
+import type { Note } from '~/types/note'
+import type { StorageError } from '~/types/storage'
 import { storageErrorMessages } from '~/utils/storage-errors'
 import { readDraft } from '~/utils/draft-storage'
 
