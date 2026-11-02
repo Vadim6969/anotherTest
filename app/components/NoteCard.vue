@@ -14,7 +14,12 @@ const date = computed(() =>
   <article class="note-card">
     <div class="note-card__heading">
       <h2>
-        <NuxtLink :to="`/notes/${encodeURIComponent(note.id)}`">{{ note.title }}</NuxtLink>
+        <NuxtLink
+          :id="`note-${note.id}`"
+          :to="`/notes/${encodeURIComponent(note.id)}`"
+          :title="note.title"
+          >{{ note.title }}</NuxtLink
+        >
       </h2>
       <button
         class="icon-button icon-button--danger"
@@ -25,7 +30,7 @@ const date = computed(() =>
         <AppIcon name="trash" />
       </button>
     </div>
-    <ul v-if="note.todos.length" class="note-card__preview">
+    <ul v-if="note.todos.length" class="note-card__preview" role="list">
       <li
         v-for="todo in note.todos.slice(0, 3)"
         :key="todo.id"
@@ -35,7 +40,7 @@ const date = computed(() =>
           ><AppIcon v-if="todo.completed" name="check"
         /></span>
         <span class="sr-only">{{ todo.completed ? 'Выполнено:' : 'Не выполнено:' }}</span>
-        <span class="note-card__text">{{ todo.text }}</span>
+        <span class="note-card__text" :title="todo.text">{{ todo.text }}</span>
       </li>
     </ul>
     <p v-else class="note-card__empty">Пока без задач</p>
@@ -54,6 +59,7 @@ const date = computed(() =>
   display: flex;
   flex-direction: column;
   min-width: 0;
+  height: 100%;
   padding: 1.5rem;
   border: 1px solid var(--color-border);
   border-radius: 0.75rem;
@@ -73,6 +79,10 @@ const date = computed(() =>
       line-height: 1.5;
     }
     a {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      overflow: hidden;
       color: inherit;
       text-decoration: none;
       overflow-wrap: anywhere;
@@ -106,6 +116,10 @@ const date = computed(() =>
   }
 
   &__text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
     overflow-wrap: anywhere;
     min-width: 0;
   }
@@ -126,7 +140,7 @@ const date = computed(() =>
     margin-top: auto;
     padding-top: 1.5rem;
     color: var(--color-text-muted);
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
   }
 }
 

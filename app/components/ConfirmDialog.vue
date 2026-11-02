@@ -102,6 +102,7 @@ defineExpose({ ask })
   width: min(28rem, calc(100% - 2rem));
   max-height: calc(100dvh - 2rem);
   padding: 1.75rem;
+  overflow: auto;
   overflow-wrap: anywhere;
   border: 1px solid var(--color-border);
   border-radius: 1rem;
@@ -129,6 +130,17 @@ defineExpose({ ask })
     flex-wrap: wrap;
     gap: 0.75rem;
     margin-top: 1.75rem;
+  }
+
+  @media (max-width: 560px) {
+    padding: 1.5rem;
+
+    &__actions {
+      flex-direction: column;
+    }
+    &__actions .button {
+      width: 100%;
+    }
   }
 }
 </style>

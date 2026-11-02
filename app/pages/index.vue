@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import type ConfirmDialog from '~/components/ConfirmDialog.vue'
 import { storageErrorMessages } from '~/utils/storage-errors'
 
 const store = useNotesStore()
 const confirmation = ref<InstanceType<typeof ConfirmDialog> | null>(null)
+const statusMessage = ref('')
 const notes = computed(() =>
   [...store.notes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
 )
@@ -12,24 +13,32 @@ store.load()
 useHead({ title: 'Заметки' })
 
 async function deleteNote(id: string): Promise<void> {
+  statusMessage.value = ''
   const confirmed = await confirmation.value?.ask({
     title: 'Удалить заметку?',
     description: 'Заметка и все её задачи будут удалены. Это действие нельзя отменить.',
     confirmLabel: 'Удалить заметку',
     danger: true,
   })
-  if (confirmed) store.remove(id)
+  if (!confirmed) return
+  const index = notes.value.findIndex((note) => note.id === id)
+  const result = store.remove(id)
+  if (result.status !== 'ok' && result.status !== 'missing') return
+  statusMessage.value = 'Заметка удалена'
+  await nextTick()
+  const next = notes.value[index] ?? notes.value[index - 1]
+  document.getElementById(next ? `note-${next.id}` : 'create-note')?.focus()
 }
 </script>
 
 <template>
-  <main id="main-content" class="page">
+  <main id="main-content" class="page" tabindex="-1">
     <header class="page-heading">
       <div>
         <h1>Мои заметки</h1>
         <p>Планы и задачи — всё под рукой.</p>
       </div>
-      <NuxtLink class="button button--primary" to="/notes/new"
+      <NuxtLink id="create-note" class="button button--primary" to="/notes/new"
         ><AppIcon name="plus" /> Создать заметку</NuxtLink
       >
     </header>
@@ -37,9 +46,10 @@ async function deleteNote(id: string): Promise<void> {
       <p>{{ storageErrorMessages[store.storageError] }}</p>
       <button class="button button--secondary" type="button" @click="store.load">Повторить</button>
     </div>
-    <div v-if="notes.length" class="notes-grid">
-      <NoteCard v-for="note in notes" :key="note.id" :note="note" @delete="deleteNote" />
-    </div>
+    <p class="sr-only" role="status">{{ statusMessage }}</p>
+    <ul v-if="notes.length" class="notes-grid" role="list" aria-label="Заметки">
+      <li v-for="note in notes" :key="note.id"><NoteCard :note="note" @delete="deleteNote" /></li>
+    </ul>
     <section v-else-if="!store.storageError" class="empty-state">
       <span class="empty-state__icon"><AppIcon name="note" /></span>
       <h2>Здесь появятся ваши заметки</h2>
@@ -57,6 +67,13 @@ async function deleteNote(id: string): Promise<void> {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
   gap: 1.25rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+
+  > li {
+    min-width: 0;
+  }
 }
 .empty-state {
   margin-top: 2rem;

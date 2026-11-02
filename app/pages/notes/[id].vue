@@ -25,7 +25,7 @@ useHead({ title: 'Редактор — Заметки' })
 </script>
 
 <template>
-  <main v-if="loadError" id="main-content" class="page">
+  <main v-if="loadError" id="main-content" class="page" tabindex="-1">
     <NuxtLink class="back-link" to="/"><AppIcon name="back" /> Все заметки</NuxtLink>
     <section class="empty-state">
       <h1>Не удалось открыть заметку</h1>
@@ -34,7 +34,7 @@ useHead({ title: 'Редактор — Заметки' })
     </section>
   </main>
   <NoteEditor v-else-if="isNew || initialNote || hasDraft" :note="initialNote" :note-id="noteId" />
-  <main v-else id="main-content" class="page">
+  <main v-else id="main-content" class="page" tabindex="-1">
     <NuxtLink class="back-link" to="/"><AppIcon name="back" /> Все заметки</NuxtLink>
     <section class="empty-state">
       <h1>Заметка не найдена</h1>

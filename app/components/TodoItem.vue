@@ -10,7 +10,7 @@ const emit = defineEmits<{
 }>()
 
 function changeText(event: Event): void {
-  emit('update:text', (event.target as HTMLInputElement).value)
+  emit('update:text', (event.target as HTMLTextAreaElement).value)
 }
 
 function changeCompleted(event: Event): void {
@@ -20,18 +20,20 @@ function changeCompleted(event: Event): void {
 
 <template>
   <li class="todo-item" :class="{ 'is-complete': todo.completed }">
-    <input
-      class="todo-item__checkbox"
-      type="checkbox"
-      :checked="todo.completed"
-      :aria-label="`Отметить задачу ${number} выполненной`"
-      @change="changeCompleted"
-    />
-    <div class="todo-item__field">
+    <label class="todo-item__check-target">
       <input
+        class="todo-item__checkbox"
+        type="checkbox"
+        :checked="todo.completed"
+        :aria-label="`Отметить задачу ${number} выполненной`"
+        @change="changeCompleted"
+      />
+    </label>
+    <div class="todo-item__field">
+      <textarea
         :id="`todo-${todo.id}`"
         class="text-input"
-        type="text"
+        rows="2"
         :value="todo.text"
         :aria-label="`Задача ${number}`"
         :aria-invalid="error || undefined"
@@ -58,19 +60,36 @@ function changeCompleted(event: Event): void {
 .todo-item {
   display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
+  gap: 0.5rem;
+
+  &__check-target {
+    display: grid;
+    place-items: center;
+    flex: 0 0 2.75rem;
+    min-height: 2.75rem;
+    cursor: pointer;
+    border-radius: 0.5rem;
+  }
+
+  &__check-target:hover {
+    background: var(--color-accent-soft);
+  }
 
   &__checkbox {
     flex-shrink: 0;
     width: 1.125rem;
     height: 1.125rem;
-    margin: 0.8125rem 0 0;
+    margin: 0;
     accent-color: var(--color-accent);
     cursor: pointer;
   }
   &__field {
     flex: 1;
     min-width: 0;
+  }
+  textarea {
+    resize: vertical;
+    overflow-wrap: anywhere;
   }
   .icon-button {
     margin-top: 0.125rem;

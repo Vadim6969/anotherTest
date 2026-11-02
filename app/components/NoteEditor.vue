@@ -138,7 +138,7 @@ async function deleteNote(): Promise<void> {
 </script>
 
 <template>
-  <main id="main-content" class="page editor-page">
+  <main id="main-content" class="page editor-page" tabindex="-1">
     <NuxtLink class="back-link" to="/"><AppIcon name="back" /> Все заметки</NuxtLink>
     <header class="page-heading editor-heading">
       <div>
@@ -205,6 +205,7 @@ async function deleteNote(): Promise<void> {
 
     <form class="editor-form" novalidate @submit.prevent="save()">
       <fieldset class="editor-fields" :disabled="editingDisabled">
+        <legend class="sr-only">Данные заметки</legend>
         <div v-if="actionError" class="notice notice--error" role="alert">{{ actionError }}</div>
         <div class="editor-form__title">
           <label class="field-label" for="note-title">Название заметки</label>
@@ -232,7 +233,7 @@ async function deleteNote(): Promise<void> {
               Задачи <span>{{ draft.todos.length }}</span>
             </h2>
           </div>
-          <ul v-if="draft.todos.length" class="todo-list">
+          <ul v-if="draft.todos.length" class="todo-list" role="list">
             <TodoItem
               v-for="(todo, index) in draft.todos"
               :key="todo.id"
