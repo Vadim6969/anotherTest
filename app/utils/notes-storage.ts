@@ -27,7 +27,7 @@ function isTodo(value: unknown): value is Todo {
   )
 }
 
-function isNote(value: unknown): value is Note {
+export function isNote(value: unknown): value is Note {
   return (
     isRecord(value) &&
     isId(value.id) &&

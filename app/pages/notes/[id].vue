@@ -2,13 +2,17 @@
 import { ref, shallowRef } from 'vue'
 import type { Note, StorageError } from '~/types/note'
 import { storageErrorMessages } from '~/utils/storage-errors'
+import { readDraft } from '~/utils/draft-storage'
 
 definePageMeta({ key: (route) => route.path })
 const route = useRoute()
 const store = useNotesStore()
 const isNew = route.params.id === 'new'
+const noteId = isNew ? null : String(route.params.id)
 const initialNote = shallowRef<Note>()
 const loadError = ref<StorageError | null>(null)
+const draftResult = readDraft(noteId)
+const hasDraft = draftResult.status === 'ok' && draftResult.note !== null
 
 function loadNote(): void {
   store.load()
@@ -29,7 +33,7 @@ useHead({ title: 'Редактор — Заметки' })
       <button class="button button--primary" type="button" @click="loadNote">Повторить</button>
     </section>
   </main>
-  <NoteEditor v-else-if="isNew || initialNote" :note="initialNote" />
+  <NoteEditor v-else-if="isNew || initialNote || hasDraft" :note="initialNote" :note-id="noteId" />
   <main v-else id="main-content" class="page">
     <NuxtLink class="back-link" to="/"><AppIcon name="back" /> Все заметки</NuxtLink>
     <section class="empty-state">

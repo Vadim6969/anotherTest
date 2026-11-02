@@ -7,6 +7,7 @@ interface Confirmation {
   confirmLabel: string
   cancelLabel?: string
   danger?: boolean
+  focusConfirm?: boolean
 }
 
 const dialog = ref<HTMLDialogElement | null>(null)
@@ -19,10 +20,10 @@ const options = shallowRef<Confirmation>({
 })
 const titleId = useId()
 const descriptionId = useId()
-let resolvePending: ((answer: boolean) => void) | null = null
+let resolvePending: ((answer: boolean | null) => void) | null = null
 let previousFocus: HTMLElement | null = null
 
-function finish(answer: boolean): void {
+function finish(answer: boolean | null): void {
   if (!resolvePending) return
   const resolve = resolvePending
   resolvePending = null
@@ -31,8 +32,8 @@ function finish(answer: boolean): void {
   resolve(answer)
 }
 
-function ask(confirmation: Confirmation): Promise<boolean> {
-  if (resolvePending || !dialog.value) return Promise.resolve(false)
+function ask(confirmation: Confirmation): Promise<boolean | null> {
+  if (resolvePending || !dialog.value) return Promise.resolve(null)
   options.value = confirmation
   previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
 
@@ -40,9 +41,10 @@ function ask(confirmation: Confirmation): Promise<boolean> {
     resolvePending = resolve
     void nextTick(() => {
       if (!resolvePending) return
-      if (!dialog.value) return finish(false)
+      if (!dialog.value) return finish(null)
       dialog.value.showModal()
-      cancelButton.value?.focus()
+      if (options.value.focusConfirm) confirmButton.value?.focus()
+      else cancelButton.value?.focus()
     })
   })
 }
@@ -57,7 +59,7 @@ function trapFocus(event: KeyboardEvent): void {
   }
 }
 
-onBeforeUnmount(() => finish(false))
+onBeforeUnmount(() => finish(null))
 defineExpose({ ask })
 </script>
 
@@ -67,8 +69,8 @@ defineExpose({ ask })
     class="confirm-dialog"
     :aria-labelledby="titleId"
     :aria-describedby="descriptionId"
-    @cancel.prevent="finish(false)"
-    @close="finish(false)"
+    @cancel.prevent="finish(null)"
+    @close="finish(null)"
     @keydown.tab="trapFocus"
   >
     <h2 :id="titleId">{{ options.title }}</h2>

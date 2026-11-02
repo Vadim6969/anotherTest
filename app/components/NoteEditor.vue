@@ -1,14 +1,22 @@
 <script setup lang="ts">
-import { nextTick, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate } from 'vue-router'
 import type ConfirmDialog from './ConfirmDialog.vue'
 import type { Note } from '~/types/note'
 import { storageErrorMessages } from '~/utils/storage-errors'
 
-const props = defineProps<{ note?: Note }>()
+const props = defineProps<{ note?: Note; noteId: string | null }>()
 const store = useNotesStore()
-const editor = useNoteEditor(props.note)
+const editor = useNoteEditor(props.note, props.noteId ?? undefined)
 const { draft, isNew, canUndo, canRedo, isDirty, validationErrors } = editor
+const recovery = useNoteDraft(props.noteId, editor)
+const { pendingDraft, error: draftError, finishing } = recovery
+const editingDisabled = computed(() => !!pendingDraft.value || finishing.value)
+const currentSavedNote = computed(() => store.notes.find((note) => note.id === draft.id))
+const deleted = computed(() => !isNew.value && !store.storageError && !currentSavedNote.value)
+const changedElsewhere = computed(
+  () => currentSavedNote.value && currentSavedNote.value.updatedAt !== draft.updatedAt,
+)
 const confirmation = ref<InstanceType<typeof ConfirmDialog> | null>(null)
 const titleInput = ref<HTMLInputElement | null>(null)
 const addButton = ref<HTMLButtonElement | null>(null)
@@ -16,7 +24,28 @@ const submitted = ref(false)
 const actionError = ref('')
 
 useHead(() => ({ title: isNew.value ? 'Новая заметка — Заметки' : `${draft.title} — Заметки` }))
-useEditorShortcuts(editor.undo, editor.redo)
+useEditorShortcuts(
+  () => !editingDisabled.value && editor.undo(),
+  () => !editingDisabled.value && editor.redo(),
+)
+
+async function offerRecovery(): Promise<void> {
+  if (!pendingDraft.value) return
+  const answer = await confirmation.value?.ask({
+    title: 'Восстановить черновик?',
+    description:
+      'В этой вкладке остались несохранённые изменения. Можно продолжить работу с ними или удалить черновик.',
+    confirmLabel: 'Восстановить',
+    cancelLabel: 'Удалить черновик',
+    focusConfirm: true,
+  })
+  if (answer === true) recovery.restore()
+  else if (answer === false && recovery.clear() && !props.note && props.noteId !== null) {
+    await navigateTo('/')
+  }
+}
+
+onMounted(offerRecovery)
 
 async function confirmDiscard(): Promise<boolean> {
   return (
@@ -30,11 +59,18 @@ async function confirmDiscard(): Promise<boolean> {
   )
 }
 
-onBeforeRouteLeave(() => !isDirty.value || confirmDiscard())
-onBeforeRouteUpdate((to, from) => to.path === from.path || !isDirty.value || confirmDiscard())
+async function leave(): Promise<boolean> {
+  if (!isDirty.value) return true
+  if (!(await confirmDiscard()) || !recovery.clear()) return false
+  editor.cancel()
+  return true
+}
+
+onBeforeRouteLeave(leave)
+onBeforeRouteUpdate((to, from) => to.path === from.path || leave())
 
 async function cancel(): Promise<void> {
-  if (!(await confirmDiscard())) return
+  if (!(await confirmDiscard()) || !recovery.clear()) return
   editor.cancel()
   await navigateTo('/')
 }
@@ -58,12 +94,13 @@ async function removeTodo(id: string): Promise<void> {
   else addButton.value?.focus()
 }
 
-async function save(): Promise<void> {
+async function save(asNew = false): Promise<void> {
+  if (editingDisabled.value || (deleted.value && !asNew)) return
   submitted.value = true
   actionError.value = ''
-  const result = editor.save()
+  const result = asNew ? editor.saveAsNew() : editor.save()
   if (result.status === 'ok') {
-    await navigateTo('/')
+    await finishSession()
   } else if (result.status === 'invalid') {
     await nextTick()
     if (validationErrors.value.title) titleInput.value?.focus()
@@ -77,6 +114,12 @@ async function save(): Promise<void> {
   }
 }
 
+async function finishSession(): Promise<void> {
+  if (!recovery.finish()) return
+  editor.cancel()
+  await navigateTo('/')
+}
+
 async function deleteNote(): Promise<void> {
   const confirmed = await confirmation.value?.ask({
     title: 'Удалить заметку?',
@@ -87,8 +130,7 @@ async function deleteNote(): Promise<void> {
   if (!confirmed) return
   const result = store.remove(draft.id)
   if (result.status === 'ok' || result.status === 'missing') {
-    editor.cancel()
-    await navigateTo('/')
+    await finishSession()
   } else if (result.status === 'storage-error') {
     actionError.value = storageErrorMessages[result.error]
   }
@@ -107,7 +149,7 @@ async function deleteNote(): Promise<void> {
         <button
           class="icon-button"
           type="button"
-          :disabled="!canUndo"
+          :disabled="!canUndo || editingDisabled"
           aria-label="Отменить действие"
           title="Отменить действие (Ctrl/Cmd+Z вне текстового поля)"
           @click="editor.undo"
@@ -117,7 +159,7 @@ async function deleteNote(): Promise<void> {
         <button
           class="icon-button"
           type="button"
-          :disabled="!canRedo"
+          :disabled="!canRedo || editingDisabled"
           aria-label="Повторить действие"
           title="Повторить действие (Ctrl/Cmd+Shift+Z вне текстового поля)"
           @click="editor.redo"
@@ -127,69 +169,113 @@ async function deleteNote(): Promise<void> {
       </div>
     </header>
 
-    <form class="editor-form" novalidate @submit.prevent="save">
-      <div v-if="actionError" class="notice notice--error" role="alert">{{ actionError }}</div>
-      <div class="editor-form__title">
-        <label class="field-label" for="note-title">Название заметки</label>
-        <input
-          id="note-title"
-          ref="titleInput"
-          class="text-input"
-          type="text"
-          :value="draft.title"
-          :aria-invalid="(submitted && validationErrors.title) || undefined"
-          :aria-describedby="submitted && validationErrors.title ? 'title-error' : undefined"
-          placeholder="Например, планы на выходные"
-          autocomplete="off"
-          @input="changeTitle"
-          @blur="editor.flushTextEdit"
-        />
-        <p v-if="submitted && validationErrors.title" id="title-error" class="field-error">
-          Введите название заметки
-        </p>
-      </div>
+    <div v-if="pendingDraft" class="notice" role="status">
+      <p>
+        Найден несохранённый черновик. Выберите, восстановить его или удалить, чтобы продолжить
+        редактирование.
+      </p>
+      <button class="button button--secondary" type="button" @click="offerRecovery">
+        Открыть черновик
+      </button>
+    </div>
+    <div v-if="finishing" class="notice notice--error" role="alert">
+      <p>Действие выполнено, но удалить резервный черновик не удалось. Повторите очистку.</p>
+      <button class="button button--secondary" type="button" @click="finishSession">
+        Повторить очистку
+      </button>
+    </div>
+    <div v-else-if="draftError" class="notice notice--error" role="alert">
+      {{
+        draftError === 'unavailable'
+          ? 'Не удалось сохранить или очистить черновик в этой вкладке. Не закрывайте страницу до успешного сохранения заметки.'
+          : 'Сохранённый черновик повреждён или создан в другой версии приложения. Автосохранение черновика приостановлено; исходные данные не изменены.'
+      }}
+    </div>
+    <div v-if="store.storageError" class="notice notice--error" role="alert">
+      {{ storageErrorMessages[store.storageError] }}
+    </div>
+    <div v-else-if="deleted" class="notice" role="status">
+      Эта заметка удалена в другой вкладке. Текущий текст остался в редакторе: его можно сохранить
+      как новую заметку.
+    </div>
+    <div v-else-if="changedElsewhere" class="notice" role="status">
+      Заметка изменена в другой вкладке. Ваш текст остался прежним. Сохранение заменит текущую
+      версию вашими правками.
+    </div>
 
-      <section aria-labelledby="tasks-heading">
-        <div class="tasks-heading">
-          <h2 id="tasks-heading">
-            Задачи <span>{{ draft.todos.length }}</span>
-          </h2>
-        </div>
-        <ul v-if="draft.todos.length" class="todo-list">
-          <TodoItem
-            v-for="(todo, index) in draft.todos"
-            :key="todo.id"
-            :todo="todo"
-            :number="index + 1"
-            :error="submitted && validationErrors.todos.includes(todo.id)"
-            @update:text="editor.setTodoText(todo.id, $event)"
-            @update:completed="editor.setTodoCompleted(todo.id, $event)"
+    <form class="editor-form" novalidate @submit.prevent="save()">
+      <fieldset class="editor-fields" :disabled="editingDisabled">
+        <div v-if="actionError" class="notice notice--error" role="alert">{{ actionError }}</div>
+        <div class="editor-form__title">
+          <label class="field-label" for="note-title">Название заметки</label>
+          <input
+            id="note-title"
+            ref="titleInput"
+            class="text-input"
+            type="text"
+            :value="draft.title"
+            :aria-invalid="(submitted && validationErrors.title) || undefined"
+            :aria-describedby="submitted && validationErrors.title ? 'title-error' : undefined"
+            placeholder="Например, планы на выходные"
+            autocomplete="off"
+            @input="changeTitle"
             @blur="editor.flushTextEdit"
-            @remove="removeTodo(todo.id)"
           />
-        </ul>
-        <p v-else class="empty-tasks">
-          Добавьте первую задачу или сохраните заметку только с названием.
-        </p>
-        <button
-          ref="addButton"
-          class="button button--secondary add-task"
-          type="button"
-          @click="addTodo"
-        >
-          <AppIcon name="plus" /> Добавить задачу
-        </button>
-      </section>
-
-      <footer class="editor-actions">
-        <button v-if="!isNew" class="button button--danger-text" type="button" @click="deleteNote">
-          <AppIcon name="trash" /> Удалить заметку
-        </button>
-        <div class="editor-actions__save">
-          <button class="button button--secondary" type="button" @click="cancel">Отмена</button>
-          <button class="button button--primary" type="submit">Сохранить</button>
+          <p v-if="submitted && validationErrors.title" id="title-error" class="field-error">
+            Введите название заметки
+          </p>
         </div>
-      </footer>
+
+        <section aria-labelledby="tasks-heading">
+          <div class="tasks-heading">
+            <h2 id="tasks-heading">
+              Задачи <span>{{ draft.todos.length }}</span>
+            </h2>
+          </div>
+          <ul v-if="draft.todos.length" class="todo-list">
+            <TodoItem
+              v-for="(todo, index) in draft.todos"
+              :key="todo.id"
+              :todo="todo"
+              :number="index + 1"
+              :error="submitted && validationErrors.todos.includes(todo.id)"
+              @update:text="editor.setTodoText(todo.id, $event)"
+              @update:completed="editor.setTodoCompleted(todo.id, $event)"
+              @blur="editor.flushTextEdit"
+              @remove="removeTodo(todo.id)"
+            />
+          </ul>
+          <p v-else class="empty-tasks">
+            Добавьте первую задачу или сохраните заметку только с названием.
+          </p>
+          <button
+            ref="addButton"
+            class="button button--secondary add-task"
+            type="button"
+            @click="addTodo"
+          >
+            <AppIcon name="plus" /> Добавить задачу
+          </button>
+        </section>
+
+        <footer class="editor-actions">
+          <button
+            v-if="!isNew && !deleted"
+            class="button button--danger-text"
+            type="button"
+            @click="deleteNote"
+          >
+            <AppIcon name="trash" /> Удалить заметку
+          </button>
+          <div class="editor-actions__save">
+            <button class="button button--secondary" type="button" @click="cancel">Отмена</button>
+            <button v-if="deleted" class="button button--primary" type="button" @click="save(true)">
+              Сохранить как новую
+            </button>
+            <button v-else class="button button--primary" type="submit">Сохранить</button>
+          </div>
+        </footer>
+      </fieldset>
     </form>
     <ConfirmDialog ref="confirmation" />
   </main>
@@ -212,12 +298,18 @@ async function deleteNote(): Promise<void> {
   background: var(--color-surface);
 }
 .editor-form {
-  display: grid;
-  gap: 2rem;
   padding: 2rem;
   border: 1px solid var(--color-border);
   border-radius: 0.75rem;
   background: var(--color-surface);
+}
+.editor-fields {
+  display: grid;
+  gap: 2rem;
+  min-width: 0;
+  padding: 0;
+  margin: 0;
+  border: 0;
 }
 .tasks-heading h2 {
   display: flex;

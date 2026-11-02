@@ -1,3 +1,7 @@
+<script setup lang="ts">
+useNotesSync()
+</script>
+
 <template>
   <a class="skip-link" href="#main-content">К содержимому</a>
   <header class="site-header">

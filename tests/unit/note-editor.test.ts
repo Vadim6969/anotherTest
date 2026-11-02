@@ -25,6 +25,54 @@ describe('note editor', () => {
     return useNoteEditor(store.notes[0]!)
   }
 
+  it('restores a detached draft with empty history and keeps the saved baseline for cancel', () => {
+    const editor = existingEditor()
+    const recovered = makeNote({ title: 'Черновик' })
+    editor.setTitle('Временная правка')
+    editor.restoreDraft(recovered)
+    recovered.todos[0]!.text = 'Внешнее изменение'
+    expect(editor.draft.title).toBe('Черновик')
+    expect(editor.draft.todos[0]!.text).toBe('Купить хлеб')
+    expect(editor.isDirty.value).toBe(true)
+    expect(editor.canUndo.value).toBe(false)
+    expect(editor.canRedo.value).toBe(false)
+    editor.cancel()
+    expect(editor.draft).toEqual(makeNote())
+  })
+
+  it('restores a new draft and saves it under its recovered id', () => {
+    const editor = useNoteEditor()
+    editor.restoreDraft(makeNote())
+    expect(editor.isNew.value).toBe(true)
+    expect(editor.save()).toEqual({ status: 'ok' })
+    expect(useNotesStore().notes[0]!.id).toBe('note-1')
+  })
+
+  it('recovers an orphan draft without resurrecting the deleted id', () => {
+    const editor = useNoteEditor(undefined, 'note-1')
+    editor.restoreDraft(makeNote({ title: 'Мои правки' }))
+    expect(editor.isNew.value).toBe(false)
+    expect(editor.save()).toEqual({ status: 'missing' })
+    expect(editor.saveAsNew()).toEqual({ status: 'ok' })
+    expect(useNotesStore().notes).toHaveLength(1)
+    expect(editor.draft.id).not.toBe('note-1')
+    expect(editor.draft.title).toBe('Мои правки')
+    expect(editor.isDirty.value).toBe(false)
+    expect(editor.canUndo.value).toBe(false)
+  })
+
+  it('keeps the original id, draft and history when saving as new fails', () => {
+    const editor = existingEditor()
+    editor.setTitle('Правки')
+    vi.spyOn(storage, 'setItem').mockImplementation(() => {
+      throw new Error('Quota')
+    })
+    expect(editor.saveAsNew().status).toBe('storage-error')
+    expect(editor.draft.id).toBe('note-1')
+    expect(editor.draft.title).toBe('Правки')
+    expect(editor.canUndo.value).toBe(true)
+  })
+
   it('edits a detached draft even when the original note is reactive', () => {
     const original = reactive(makeNote())
     const editor = useNoteEditor(original)

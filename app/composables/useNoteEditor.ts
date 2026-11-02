@@ -10,15 +10,20 @@ function copyNote(note: Note): Note {
   return { ...note, todos: note.todos.map((todo) => ({ ...todo })) }
 }
 
-export function useNoteEditor(initialNote?: Note) {
+export function useNoteEditor(initialNote?: Note, existingId?: string) {
   const store = useNotesStore()
   const baseline = shallowRef<Note>(
     initialNote
       ? copyNote(initialNote)
-      : { id: crypto.randomUUID(), title: '', todos: [], updatedAt: new Date().toISOString() },
+      : {
+          id: existingId ?? crypto.randomUUID(),
+          title: '',
+          todos: [],
+          updatedAt: new Date().toISOString(),
+        },
   )
   const draft = reactive(copyNote(baseline.value))
-  const isNew = ref(!initialNote)
+  const isNew = ref(!initialNote && !existingId)
   const history = shallowRef(createNoteHistory(draft))
   const pendingText = shallowRef<TextChange | null>(null)
 
@@ -139,21 +144,35 @@ export function useNoteEditor(initialNote?: Note) {
     triggerRef(history)
   }
 
-  function save(): EditorSaveResult {
+  function persist(asNew: boolean): EditorSaveResult {
     flushTextEdit()
     if (validationErrors.value.title || validationErrors.value.todos.length > 0) {
       return { status: 'invalid' }
     }
 
-    const result = isNew.value ? store.create(draft) : store.update(draft)
+    const candidate = asNew ? { ...copyNote(draft), id: crypto.randomUUID() } : draft
+    const result = asNew || isNew.value ? store.create(candidate) : store.update(candidate)
     if (result.status === 'ok') {
-      const saved = store.notes.find((note) => note.id === draft.id) ?? draft
+      const saved = store.notes.find((note) => note.id === candidate.id) ?? candidate
       baseline.value = copyNote(saved)
       Object.assign(draft, copyNote(saved))
       isNew.value = false
       clearHistory()
     }
     return result
+  }
+
+  function save(): EditorSaveResult {
+    return persist(false)
+  }
+
+  function saveAsNew(): EditorSaveResult {
+    return persist(true)
+  }
+
+  function restoreDraft(note: Note): void {
+    Object.assign(draft, copyNote(note))
+    clearHistory()
   }
 
   function cancel(): void {
@@ -177,6 +196,8 @@ export function useNoteEditor(initialNote?: Note) {
     undo,
     redo,
     save,
+    saveAsNew,
+    restoreDraft,
     cancel,
   }
 }
